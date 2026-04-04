@@ -12,6 +12,8 @@ Programmet understotter flere almindelige lydformater og lader dig:
 ## Funktioner
 
 - Tkinter-baseret desktop-GUI
+- engelsk som standardsprog
+- mulighed for at skifte mellem engelsk og dansk i appen
 - konvertering til MP3 via `pydub`
 - understottelse af formater som `m4a`, `flac`, `wav`, `ogg`, `wma`, `aac` og flere
 - logvisning direkte i programmet
@@ -31,9 +33,9 @@ pip install -r requirements.txt
 Installer derefter `ffmpeg`:
 
 - Windows: download fra [ffmpeg.org](https://ffmpeg.org/download.html)
-- sørg for at `ffmpeg` er tilføjet til din PATH
+- sorg for at `ffmpeg` er tilfojet til din PATH
 
-## Kør projektet
+## Kor projektet
 
 ```bash
 py convert.py
@@ -47,9 +49,13 @@ AudioConverter.bat
 
 ## Filer i projektet
 
-- `convert.py` - hovedprogrammet med GUI og konverteringslogik
+- `convert.py` - hovedprogrammet med GUI, sprogvalg og konverteringslogik
 - `AudioConverter.bat` - simpel Windows-starter
 - `requirements.txt` - Python-afhaengigheder
+
+## Author
+
+Coded by Trixster, 2026.
 
 ## Note
 
