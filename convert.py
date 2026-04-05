@@ -16,13 +16,17 @@ class AudioConverterGUI:
         self.root.minsize(900, 760)
 
         self.base_dir = Path(__file__).resolve().parent
+        self.languages_dir = self.base_dir / "languages"
+        self.settings_path = self.base_dir / "settings.json"
         self.translations = self.load_translations()
+        self.settings = self.load_settings()
         self.files = []
         self.is_converting = False
-        self.language_var = tk.StringVar(value="en")
-        self.theme_var = tk.StringVar(value="dark")
-        self.output_location_var = tk.StringVar(value="same")
-        self.bitrate_var = tk.StringVar(value="320k")
+        self.language_var = tk.StringVar(value=self.settings.get("language", "en"))
+        self.theme_var = tk.StringVar(value=self.settings.get("theme", "dark"))
+        self.output_location_var = tk.StringVar(value=self.settings.get("output_location", "same"))
+        self.output_folder_var = tk.StringVar(value=self.settings.get("output_folder", ""))
+        self.bitrate_var = tk.StringVar(value=self.settings.get("bitrate", "320k"))
 
         self.log_file_path = self.base_dir / "converter_log.txt"
         self.supported_formats = [
@@ -51,17 +55,79 @@ class AudioConverterGUI:
         self.check_dependencies()
         self.setup_style()
         self.setup_ui()
+        if self.language_var.get() not in self.translations:
+            self.language_var.set(next(iter(self.translations)))
+        if self.theme_var.get() not in self.theme_palette:
+            self.theme_var.set("dark")
+        if self.output_location_var.get() not in {"same", "other"}:
+            self.output_location_var.set("same")
+        if self.bitrate_var.get() not in {"128k", "192k", "256k", "320k"}:
+            self.bitrate_var.set("320k")
         self.apply_theme()
         self.apply_translations()
+        self.toggle_output_folder()
         self.reload_log()
+        self.bitrate_var.trace_add("write", self.on_settings_changed)
+        self.output_folder_var.trace_add("write", self.on_settings_changed)
 
     def load_translations(self):
-        with open(self.base_dir / "translations.json", "r", encoding="utf-8") as translation_file:
-            return json.load(translation_file)
+        translations = {}
+        if self.languages_dir.exists():
+            for language_file in sorted(self.languages_dir.glob("*.json")):
+                with open(language_file, "r", encoding="utf-8") as translation_file:
+                    translations[language_file.stem] = json.load(translation_file)
+
+        if not translations:
+            legacy_file = self.base_dir / "translations.json"
+            if legacy_file.exists():
+                with open(legacy_file, "r", encoding="utf-8") as translation_file:
+                    translations = json.load(translation_file)
+
+        if not translations:
+            raise FileNotFoundError("No language files were found in the languages folder.")
+
+        preferred_order = ["en", "dk", "de", "no", "sv"]
+        ordered_codes = [code for code in preferred_order if code in translations]
+        ordered_codes.extend(sorted(code for code in translations if code not in ordered_codes))
+        return {code: translations[code] for code in ordered_codes}
+
+    def load_settings(self):
+        if not self.settings_path.exists():
+            return {}
+        try:
+            with open(self.settings_path, "r", encoding="utf-8") as settings_file:
+                data = json.load(settings_file)
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def save_settings(self):
+        settings = {
+            "language": self.language_var.get(),
+            "theme": self.theme_var.get(),
+            "output_location": self.output_location_var.get(),
+            "output_folder": self.output_folder_var.get(),
+            "bitrate": self.bitrate_var.get(),
+        }
+        with open(self.settings_path, "w", encoding="utf-8") as settings_file:
+            json.dump(settings, settings_file, indent=2)
+
+    def on_settings_changed(self, *_args):
+        self.save_settings()
 
     def t(self, key, **kwargs):
         template = self.translations[self.language_var.get()][key]
         return template.format(**kwargs) if kwargs else template
+
+    def translate(self, language_code, key, **kwargs):
+        template = self.translations[language_code][key]
+        return template.format(**kwargs) if kwargs else template
+
+    def run_on_ui_thread(self, callback, *args, **kwargs):
+        if threading.current_thread() is threading.main_thread():
+            callback(*args, **kwargs)
+            return
+        self.root.after(0, lambda: callback(*args, **kwargs))
 
     def setup_style(self):
         self.style = ttk.Style()
@@ -157,7 +223,7 @@ class AudioConverterGUI:
         folder_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
         folder_frame.grid_columnconfigure(0, weight=1)
 
-        self.output_entry = tk.Entry(folder_frame, state="disabled", font=("Arial", 9))
+        self.output_entry = tk.Entry(folder_frame, state="disabled", textvariable=self.output_folder_var, font=("Arial", 9))
         self.output_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
         self.browse_button = tk.Button(folder_frame, command=self.select_output_folder, state="disabled")
@@ -221,11 +287,12 @@ class AudioConverterGUI:
         self.footer_label.grid(row=2, column=0, pady=(0, 12))
 
     def apply_translations(self):
+        language_names = [data["language_name"] for data in self.translations.values()]
         self.root.title(self.t("app_title"))
         self.header_label.config(text=self.t("header_title"))
         self.language_label.config(text=f"{self.t('language')}:")
         self.theme_label.config(text=f"{self.t('theme')}:")
-        self.language_menu.config(values=[self.translations["en"]["language_name"], self.translations["da"]["language_name"]])
+        self.language_menu.config(values=language_names)
         self.language_menu.set(self.translations[self.language_var.get()]["language_name"])
         self.theme_menu.config(values=[self.t("theme_light"), self.t("theme_dark")])
         self.theme_menu.set(self.t(f"theme_{self.theme_var.get()}"))
@@ -255,7 +322,8 @@ class AudioConverterGUI:
         self.header_frame.configure(bg=colors["header_bg"])
         self.header_label.configure(bg=colors["header_bg"], fg=colors["header_fg"])
         self.footer_label.configure(bg=colors["app_bg"], fg=colors["muted"])
-        for widget in [self.main_frame, self.file_frame, self.output_frame, self.actions_frame, self.progress_frame, self.log_frame]:
+        self.main_frame.configure(bg=colors["app_bg"])
+        for widget in [self.file_frame, self.output_frame, self.actions_frame, self.progress_frame, self.log_frame]:
             widget.configure(bg=colors["panel_bg"], fg=colors["text"])
         for widget in self.main_frame.winfo_children():
             if isinstance(widget, tk.Frame):
@@ -296,11 +364,13 @@ class AudioConverterGUI:
             if translations["language_name"] == selected:
                 self.language_var.set(code)
                 break
+        self.save_settings()
         self.apply_translations()
 
     def change_theme(self, _event=None):
         selected = self.theme_menu.get()
         self.theme_var.set("dark" if selected == self.t("theme_dark") else "light")
+        self.save_settings()
         self.apply_theme()
         self.apply_translations()
 
@@ -308,7 +378,7 @@ class AudioConverterGUI:
         try:
             import pydub  # noqa: F401
         except ImportError:
-            messagebox.showerror("Error", "pydub is not installed.\n\nInstall it with: pip install pydub")
+            messagebox.showerror(self.t("dependency_missing_title"), self.t("dependency_missing_message"))
             return False
         try:
             test_audio = AudioSegment.silent(duration=100)
@@ -316,7 +386,7 @@ class AudioConverterGUI:
             test_audio.export(temp_file, format="mp3")
             os.remove(temp_file)
         except Exception as error:
-            messagebox.showerror("Error", f"FFmpeg is not available or is not working correctly.\n\nDownload FFmpeg from: https://ffmpeg.org/download.html\n\nError: {error}")
+            messagebox.showerror(self.t("ffmpeg_error_title"), self.t("ffmpeg_error_message", error=error))
             return False
         return True
 
@@ -337,6 +407,7 @@ class AudioConverterGUI:
         else:
             self.output_entry.config(state="disabled")
             self.browse_button.config(state="disabled")
+        self.save_settings()
 
     def normalize_new_files(self, candidates):
         existing = {str(Path(path).resolve()).lower() for path in self.files}
@@ -405,8 +476,8 @@ class AudioConverterGUI:
     def select_output_folder(self):
         folder = filedialog.askdirectory(title=self.t("select_output_folder_title"))
         if folder:
-            self.output_entry.delete(0, tk.END)
-            self.output_entry.insert(0, folder)
+            self.output_folder_var.set(folder)
+            self.save_settings()
             self.log_to_file(self.t("output_folder_selected", folder=folder))
 
     def append_log_view(self, line):
@@ -438,7 +509,7 @@ class AudioConverterGUI:
                 log_file.write(log_message + "\n")
         except Exception as error:
             print(self.t("log_write_failed", error=error))
-        self.append_log_view(log_message)
+        self.run_on_ui_thread(self.append_log_view, log_message)
 
     def show_about(self):
         formats = ", ".join(ext.lstrip(".").upper() for ext in self.supported_formats)
@@ -449,61 +520,97 @@ class AudioConverterGUI:
             messagebox.showwarning(self.t("no_files_title"), self.t("no_files_message"))
             self.log_to_file(self.t("conversion_aborted_no_files"))
             return
-        if self.output_location_var.get() == "other" and not self.output_entry.get():
+        if self.output_location_var.get() == "other" and not self.output_folder_var.get():
             messagebox.showwarning(self.t("missing_folder_title"), self.t("missing_folder_message"))
             self.log_to_file(self.t("conversion_aborted_no_folder"))
             return
         if self.is_converting:
             messagebox.showinfo(self.t("already_converting_title"), self.t("already_converting_message"))
             return
-        threading.Thread(target=self.convert_files, daemon=True).start()
-
-    def convert_files(self):
         self.is_converting = True
         self.convert_button.config(state="disabled", bg="#808080", text=self.t("converting_button"))
+        files = list(self.files)
         bitrate = self.bitrate_var.get()
-        total_files = len(self.files)
-        successful = 0
-        failed = 0
-        self.log_to_file("=" * 60)
-        self.log_to_file(self.t("conversion_started", count=total_files))
-        self.log_to_file(self.t("bitrate_log", bitrate=bitrate))
-        for index, input_file in enumerate(self.files, start=1):
-            try:
-                self.status_label.config(text=self.t("converting_status", filename=os.path.basename(input_file)), fg="#FF9800")
-                self.update_progress_text(index, total_files)
-                self.progress["value"] = (index / total_files) * 100
-                self.root.update_idletasks()
-                if self.output_location_var.get() == "same":
-                    output_folder = os.path.dirname(input_file)
-                else:
-                    output_folder = self.output_entry.get()
-                    os.makedirs(output_folder, exist_ok=True)
-                filename = Path(input_file).stem
-                output_file = os.path.join(output_folder, f"{filename}.mp3")
-                self.log_to_file(self.t("convert_log_line", current=index, total=total_files, source=os.path.basename(input_file), target=f"{filename}.mp3"))
-                audio = AudioSegment.from_file(input_file)
-                audio.export(output_file, format="mp3", bitrate=bitrate)
-                file_size = os.path.getsize(output_file) / (1024 * 1024)
-                self.log_to_file(self.t("success_log", size=file_size))
-                successful += 1
-            except Exception as error:
-                self.log_to_file(self.t("failure_log", error=error))
-                failed += 1
+        output_location = self.output_location_var.get()
+        output_folder = self.output_folder_var.get()
+        language_code = self.language_var.get()
+        threading.Thread(
+            target=self.convert_files,
+            args=(files, bitrate, output_location, output_folder, language_code),
+            daemon=True,
+        ).start()
+
+    def update_conversion_progress(self, language_code, current, total, filename):
+        self.status_label.config(text=self.translate(language_code, "converting_status", filename=filename), fg="#FF9800")
+        self.update_progress_text(current, total)
+        self.progress["value"] = (current / total) * 100 if total else 0
+
+    def finish_conversion_ui(self, language_code, successful, failed, total_files):
         self.progress["value"] = 100 if total_files else 0
-        self.status_label.config(text=self.t("finished_status", successful=successful, failed=failed), fg="#4CAF50" if failed == 0 else "#F44336")
+        self.status_label.config(
+            text=self.translate(language_code, "finished_status", successful=successful, failed=failed),
+            fg="#4CAF50" if failed == 0 else "#F44336",
+        )
         self.update_progress_text(total_files, total_files)
-        self.log_to_file("=" * 60)
-        self.log_to_file(self.t("conversion_finished"))
-        self.log_to_file(self.t("successful_count", count=successful))
-        self.log_to_file(self.t("failed_count", count=failed))
-        self.log_to_file("=" * 60)
         self.is_converting = False
         self.convert_button.config(state="normal", bg="#FF9800", text=self.t("convert"))
         if failed == 0:
-            messagebox.showinfo(self.t("success_title"), self.t("success_message", count=successful))
+            messagebox.showinfo(
+                self.translate(language_code, "success_title"),
+                self.translate(language_code, "success_message", count=successful),
+            )
         else:
-            messagebox.showwarning(self.t("partial_success_title"), self.t("partial_success_message", successful=successful, failed=failed))
+            messagebox.showwarning(
+                self.translate(language_code, "partial_success_title"),
+                self.translate(language_code, "partial_success_message", successful=successful, failed=failed),
+            )
+
+    def convert_files(self, files, bitrate, output_location, output_folder, language_code):
+        total_files = len(files)
+        successful = 0
+        failed = 0
+        self.log_to_file("=" * 60)
+        self.log_to_file(self.translate(language_code, "conversion_started", count=total_files))
+        self.log_to_file(self.translate(language_code, "bitrate_log", bitrate=bitrate))
+        for index, input_file in enumerate(files, start=1):
+            try:
+                self.run_on_ui_thread(
+                    self.update_conversion_progress,
+                    language_code,
+                    index,
+                    total_files,
+                    os.path.basename(input_file),
+                )
+                if output_location == "same":
+                    output_folder = os.path.dirname(input_file)
+                else:
+                    os.makedirs(output_folder, exist_ok=True)
+                filename = Path(input_file).stem
+                output_file = os.path.join(output_folder, f"{filename}.mp3")
+                self.log_to_file(
+                    self.translate(
+                        language_code,
+                        "convert_log_line",
+                        current=index,
+                        total=total_files,
+                        source=os.path.basename(input_file),
+                        target=f"{filename}.mp3",
+                    )
+                )
+                audio = AudioSegment.from_file(input_file)
+                audio.export(output_file, format="mp3", bitrate=bitrate)
+                file_size = os.path.getsize(output_file) / (1024 * 1024)
+                self.log_to_file(self.translate(language_code, "success_log", size=file_size))
+                successful += 1
+            except Exception as error:
+                self.log_to_file(self.translate(language_code, "failure_log", error=error))
+                failed += 1
+        self.log_to_file("=" * 60)
+        self.log_to_file(self.translate(language_code, "conversion_finished"))
+        self.log_to_file(self.translate(language_code, "successful_count", count=successful))
+        self.log_to_file(self.translate(language_code, "failed_count", count=failed))
+        self.log_to_file("=" * 60)
+        self.run_on_ui_thread(self.finish_conversion_ui, language_code, successful, failed, total_files)
 
 
 if __name__ == "__main__":

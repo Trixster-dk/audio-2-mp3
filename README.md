@@ -1,33 +1,33 @@
 # Audio 2 MP3
 
-Et lille Python-projekt med grafisk brugerflade til at konvertere lydfiler til MP3.
+A small Python desktop app with a graphical interface for converting audio files to MP3.
 
-Programmet understotter flere almindelige lydformater og lader dig:
+The program supports several common audio formats and lets you:
 
-- vaelge enkelte filer
-- vaelge en hel mappe med understottede lydfiler
-- gemme MP3-filer i samme mappe eller i en valgfri output-mappe
-- vaelge bitrate
-- skifte mellem engelsk og dansk
-- skifte mellem lyst og morkt tema
-- se log direkte i hovedvinduet
+- select individual files
+- select an entire folder with supported audio files
+- save MP3 files in the same folder or in a custom output folder
+- choose the bitrate
+- switch between multiple UI languages
+- switch between light and dark theme
+- view the log directly in the main window
 
-## Funktioner
+## Features
 
-- Tkinter-baseret desktop-GUI
-- engelsk som standardsprog
-- oversaettelser ligger i `translations.json`, sa flere sprog let kan tilfojes senere
-- mappevalg med automatisk scanning efter understottede lydfiler
-- About-knap med info om projekt og understottede inputformater
-- lyst og morkt tema
-- konvertering til MP3 via `pydub`
-- understottelse af formater som `m4a`, `flac`, `wav`, `ogg`, `wma`, `aac` og flere
+- Tkinter-based desktop GUI
+- English as the default language
+- translations stored in `languages/*.json`, one file per language
+- folder import with automatic scanning for supported audio files
+- About button with project info and supported input formats
+- light and dark theme
+- MP3 conversion via `pydub`
+- support for formats such as `m4a`, `flac`, `wav`, `ogg`, `wma`, `aac`, and more
 
-## Krav
+## Requirements
 
 - Python 3
 - `pydub`
-- `ffmpeg` installeret og tilgaengelig i PATH
+- `ffmpeg` installed and available in PATH
 
 ## Installation
 
@@ -35,29 +35,29 @@ Programmet understotter flere almindelige lydformater og lader dig:
 pip install -r requirements.txt
 ```
 
-Installer derefter `ffmpeg`:
+Then install `ffmpeg`:
 
-- Windows: download fra [ffmpeg.org](https://ffmpeg.org/download.html)
-- sorg for at `ffmpeg` er tilfojet til din PATH
+- Windows: download it from [ffmpeg.org](https://ffmpeg.org/download.html)
+- make sure `ffmpeg` is added to your PATH
 
-## Kor projektet
+## Run the project
 
 ```bash
 py convert.py
 ```
 
-Eller brug batch-filen:
+Or use the batch file:
 
 ```bash
 AudioConverter.bat
 ```
 
-## Filer i projektet
+## Project files
 
-- `convert.py` - hovedprogrammet med GUI, tema, sprogvalg og konverteringslogik
-- `translations.json` - sprogfil med tekster til brugerfladen
-- `AudioConverter.bat` - simpel Windows-starter
-- `requirements.txt` - Python-afhaengigheder
+- `convert.py` - main program with GUI, theme, language switching, and conversion logic
+- `languages/` - language folder with one JSON file per language, for example `en.json`, `dk.json`, `de.json`, and `no.json`
+- `AudioConverter.bat` - simple Windows launcher
+- `requirements.txt` - Python dependencies
 
 ## Author
 
@@ -65,4 +65,4 @@ Coded by Trixster, 2026.
 
 ## Note
 
-`converter_log.txt` er bevidst ikke med i Git, fordi den indeholder lokale logdata.
+`converter_log.txt` is intentionally not tracked in Git because it contains local log data.

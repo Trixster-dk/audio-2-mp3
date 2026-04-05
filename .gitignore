@@ -10,6 +10,10 @@ env/
 
 .idea/
 .vscode/
+.codex
+
+settings.json
+PROJECT_HANDOFF.md
 
 converter_log.txt
 test_ffmpeg.mp3
