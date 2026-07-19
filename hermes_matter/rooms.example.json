@@ -1,0 +1,7 @@
+{
+  "rooms": {
+    "stue": ["4", "Living Room"],
+    "soveværelse": ["7", "Bedroom"],
+    "køkken": ["9", "Kitchen"]
+  }
+}
