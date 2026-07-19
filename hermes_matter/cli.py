@@ -30,6 +30,8 @@ def main(argv=None) -> int:
     p_sensors = sub.add_parser("sensors", help="list sensors and readings")
     p_sensors.add_argument("room", nargs="?", help="filter to this room")
 
+    sub.add_parser("devices", help="list devices with their readings")
+
     p_temp = sub.add_parser("temp", help="temperature in a room")
     p_temp.add_argument("room")
 
@@ -48,6 +50,8 @@ def main(argv=None) -> int:
         return _scan(hermes)
     if args.command == "sensors":
         return _sensors(hermes, args.room)
+    if args.command == "devices":
+        return _devices(hermes)
     if args.command == "temp":
         return _reading(hermes.get_temperature(args.room), args.room, "°C")
     if args.command == "humidity":
@@ -76,6 +80,18 @@ def _sensors(hermes: Hermes, room) -> int:
     for s in sensors:
         value = f"{s.reading.value}{s.reading.unit}" if s.reading else "n/a"
         print(f"  - [{s.room or 'unassigned'}] {s.name}: {value}")
+    return 0
+
+
+def _devices(hermes: Hermes) -> int:
+    devices = hermes.devices
+    if not devices:
+        print("No devices with readings. Is the Matter server running?")
+        return 0
+    for name, d in devices.items():
+        temp = f"{d.temperature}°C" if d.temperature is not None else "n/a"
+        hum = f"{d.humidity}%" if d.humidity is not None else "n/a"
+        print(f"  - {name} [{d.room or 'unassigned'}]: temp={temp} humidity={hum}")
     return 0
 
 

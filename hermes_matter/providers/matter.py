@@ -129,6 +129,7 @@ class MatterProvider(Provider):
                     type=sensor_type,
                     provider=self.name,
                     device_id=node_id,
+                    device_name=label,
                     room=room,
                     reading=reading,
                 )

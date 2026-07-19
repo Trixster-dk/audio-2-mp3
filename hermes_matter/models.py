@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 
 class SensorType(str, Enum):
@@ -60,5 +60,38 @@ class Sensor:
     type: SensorType
     provider: str
     device_id: str
+    device_name: str = ""
     room: Optional[str] = None
     reading: Optional[Reading] = None
+
+
+@dataclass
+class HermesDevice:
+    """A device as seen by the Hermes facade, grouping all its sensors.
+
+    Enables the device-centric access pattern::
+
+        hub = hermes.devices["SwitchBot Hub 2"]
+        hub.temperature   # -> 21.5
+        hub.humidity      # -> 45.0
+    """
+
+    id: str
+    name: str
+    provider: str
+    room: Optional[str] = None
+    sensors: List["Sensor"] = field(default_factory=list)
+
+    def _value(self, sensor_type: "SensorType") -> Optional[float]:
+        for sensor in self.sensors:
+            if sensor.type == sensor_type and sensor.reading is not None:
+                return sensor.reading.value
+        return None
+
+    @property
+    def temperature(self) -> Optional[float]:
+        return self._value(SensorType.TEMPERATURE)
+
+    @property
+    def humidity(self) -> Optional[float]:
+        return self._value(SensorType.HUMIDITY)

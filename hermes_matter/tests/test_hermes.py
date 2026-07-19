@@ -116,6 +116,66 @@ def test_unknown_room_returns_none():
     assert hermes.get_temperature("badeværelse") is None
 
 
+def test_device_centric_access():
+    nodes = [
+        {
+            "node_id": 4,
+            "attributes": {
+                "0/40/5": "SwitchBot Hub 2",
+                "1/1026/0": 2150,
+                "1/1029/0": 4500,
+            },
+        }
+    ]
+    rooms = RoomConfig({"stue": ["4"]})
+    provider = MatterProvider(rooms=rooms, client_factory=lambda: FakeClient(nodes))
+    hermes = Hermes(providers=[provider])
+
+    devices = hermes.devices
+    assert "SwitchBot Hub 2" in devices
+    hub = devices["SwitchBot Hub 2"]
+    assert hub.temperature == 21.5
+    assert hub.humidity == 45.0
+    assert hub.room == "stue"
+    assert len(hub.sensors) == 2
+
+
+def test_cache_avoids_repeated_reads():
+    calls = {"n": 0}
+
+    class CountingClient:
+        async def get_nodes(self):
+            calls["n"] += 1
+            return NODES
+
+    provider = MatterProvider(client_factory=lambda: CountingClient())
+    hermes = Hermes(providers=[provider], cache_ttl=60)
+
+    hermes.list_sensors()
+    hermes.get_temperature("stue")
+    _ = hermes.devices
+    assert calls["n"] == 1  # served from cache after the first read
+
+    hermes.refresh()
+    assert calls["n"] == 2  # explicit refresh bypasses the cache
+
+
+def test_cache_ttl_zero_always_refreshes():
+    calls = {"n": 0}
+
+    class CountingClient:
+        async def get_nodes(self):
+            calls["n"] += 1
+            return NODES
+
+    provider = MatterProvider(client_factory=lambda: CountingClient())
+    hermes = Hermes(providers=[provider], cache_ttl=0)
+
+    hermes.list_sensors()
+    hermes.list_sensors()
+    assert calls["n"] == 2
+
+
 def test_server_unreachable_degrades_gracefully():
     class BrokenClient:
         async def get_nodes(self):

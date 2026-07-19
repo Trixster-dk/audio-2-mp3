@@ -16,9 +16,45 @@ hermes.get_temperature("stue")   # -> 21.5   (°C)
 hermes.get_humidity("stue")      # -> 45.0   (%)
 ```
 
+…or address a device directly by name:
+
+```python
+hub = hermes.devices["SwitchBot Hub 2"]
+hub.temperature   # -> 21.5
+hub.humidity      # -> 45.0
+```
+
 Later you can add **Philips Hue, IKEA, Aqara, Eve** etc. by writing one
-`Provider` subclass each — the `Hermes` facade and the room lookup stay
-exactly the same.
+`Provider` subclass each — the `Hermes` facade, the room lookup and the device
+registry stay exactly the same.
+
+## Worked example: SwitchBot Hub 2
+
+The Hub 2 has no documented local REST API — `http://<ip>/api/temperature`
+does not exist. But with **Matter enabled** in the SwitchBot app it exposes its
+temperature and humidity as Matter endpoints, which is exactly what this plugin
+consumes. No SwitchBot Cloud, no API token, no internet:
+
+1. Enable Matter on the Hub 2 and commission it into your Matter controller
+   (`python-matter-server`).
+2. `python -m hermes_matter scan` — the Hub shows up over mDNS.
+3. Map it to a room in your rooms config (`"stue": ["<node_id>"]`).
+4. `hermes.get_temperature("stue")` / `hermes.devices["SwitchBot Hub 2"].temperature`.
+
+The Hub's built-in temperature/humidity are shared over Matter; its ON/OFF
+button is not exposed as a Matter sensor, so it does not appear here.
+
+## Caching
+
+Readings are cached for `cache_ttl` seconds (default 30) so repeated calls and
+the room/device views don't each hit the controller. Call `hermes.refresh()`
+to force a fresh read:
+
+```python
+hermes = Hermes(cache_ttl=15)
+hermes.refresh()                      # pull latest values into state
+hermes.devices["SwitchBot Hub 2"].temperature
+```
 
 ## Architecture
 
@@ -93,6 +129,7 @@ export HERMES_MATTER_SERVER_URL="ws://<host>:5580/ws"
 
 ```bash
 python -m hermes_matter scan                 # discover devices on the LAN
+python -m hermes_matter devices              # list devices with their readings
 python -m hermes_matter sensors              # list all sensors + readings
 python -m hermes_matter sensors stue         # only the living room
 python -m hermes_matter temp stue            # temperature in a room
