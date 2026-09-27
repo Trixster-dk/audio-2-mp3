@@ -11,6 +11,9 @@
 - [x] Version number and changelog
 - [x] Python 3.13+ support (`audioop-lts`)
 
+## Done (1.1.1)
+- [x] Real special characters in Danish, Norwegian and German
+
 ## Ideas
 - [ ] Setting for existing files: rename / skip / overwrite
 - [ ] Keep the subfolder structure when converting a folder to one output folder

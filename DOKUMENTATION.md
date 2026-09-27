@@ -1,6 +1,6 @@
 # Audio 2 MP3 - Documentation
 
-Version 1.1.0 - 2026-09-27
+Version 1.1.1 - 2026-09-27
 
 ## What it is
 
@@ -53,6 +53,7 @@ or double-click `AudioConverter.bat`.
 1. Copy `languages/en.json` to `languages/<code>.json`.
 2. Translate the values, keep the keys and `{placeholders}` unchanged.
 3. Set `language_name`. Missing keys fall back to English.
+4. Save the file as UTF-8 and use the language's real letters (æ, ø, å, ä, ö, ü, ß).
 
 ## Known limitations
 

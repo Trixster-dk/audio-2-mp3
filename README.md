@@ -1,6 +1,6 @@
 # Audio 2 MP3
 
-Version 1.1.0 - see [CHANGELOG.md](CHANGELOG.md).
+Version 1.1.1 - see [CHANGELOG.md](CHANGELOG.md).
 
 A small Python desktop app with a graphical interface for converting audio files to MP3.
 

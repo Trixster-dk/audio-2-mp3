@@ -3,6 +3,16 @@
 All notable changes to Audio 2 MP3 are documented in this file.
 The project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-09-27
+
+### Fixed
+- Danish, Norwegian and German texts now use the proper letters (æ, ø, å,
+  ä, ö, ü) instead of ASCII replacements such as "Vaelg", "Stottede" and
+  "wahlen".
+- The About button in Danish now says "Om" instead of "About".
+- The footer credit line is translated in Danish, Norwegian and German.
+- Danish: "output mappe" is written as "output-mappe".
+
 ## [1.1.0] - 2026-09-27
 
 ### Fixed
