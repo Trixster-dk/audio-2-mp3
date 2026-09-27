@@ -1,3 +1,14 @@
+# Audio 2 MP3 - convert.py
+# Version: 1.1.0
+# Date: 2026-09-27 20:56
+#
+# Changelog (see CHANGELOG.md for full history):
+# 1.1.0 - Never overwrite existing MP3 files, write output atomically,
+#         robust dependency check, locked controls during conversion,
+#         translation fallback, safer settings/log handling.
+# 1.0.0 - Initial GUI release with themes, languages and folder import.
+
+import io
 import json
 import os
 import threading
@@ -6,7 +17,37 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from pydub import AudioSegment
+try:
+    from pydub import AudioSegment
+    PYDUB_IMPORT_ERROR = None
+except ImportError as import_error:
+    AudioSegment = None
+    PYDUB_IMPORT_ERROR = import_error
+
+__version__ = "1.1.0"
+
+DEFAULT_LANGUAGE = "en"
+LANGUAGE_ALIASES = {"da": "dk"}
+LOG_VIEW_MAX_LINES = 2000
+
+
+def path_key(path):
+    """Comparison key for paths that follows the platform's case rules."""
+    return os.path.normcase(os.path.abspath(str(path)))
+
+
+def resolve_output_path(folder, stem, reserved_keys, extension=".mp3"):
+    """Return a free output path in folder, adding ' (n)' when the name is taken.
+
+    A name is taken when the file already exists on disk or when it has
+    already been assigned to another file in the same batch (reserved_keys).
+    """
+    candidate = os.path.join(folder, f"{stem}{extension}")
+    counter = 1
+    while os.path.exists(candidate) or path_key(candidate) in reserved_keys:
+        candidate = os.path.join(folder, f"{stem} ({counter}){extension}")
+        counter += 1
+    return candidate
 
 
 class AudioConverterGUI:
@@ -52,21 +93,31 @@ class AudioConverterGUI:
             },
         }
 
-        self.check_dependencies()
-        self.setup_style()
-        self.setup_ui()
-        if self.language_var.get() not in self.translations:
-            self.language_var.set(next(iter(self.translations)))
+        # Validate settings before anything calls t(), so a stale or invalid
+        # settings.json can never crash the startup.
+        language_code = LANGUAGE_ALIASES.get(self.language_var.get(), self.language_var.get())
+        if language_code not in self.translations:
+            language_code = DEFAULT_LANGUAGE if DEFAULT_LANGUAGE in self.translations else next(iter(self.translations))
+        self.language_var.set(language_code)
         if self.theme_var.get() not in self.theme_palette:
             self.theme_var.set("dark")
         if self.output_location_var.get() not in {"same", "other"}:
             self.output_location_var.set("same")
         if self.bitrate_var.get() not in {"128k", "192k", "256k", "320k"}:
             self.bitrate_var.set("320k")
+
+        self.log_lock = threading.Lock()
+        self.dependency_error = None
+        self.dependencies_ok = self.check_dependencies()
+        self.setup_style()
+        self.setup_ui()
         self.apply_theme()
         self.apply_translations()
         self.toggle_output_folder()
         self.reload_log()
+        if not self.dependencies_ok:
+            self.convert_button.config(state="disabled", bg="#808080")
+            self.log_to_file(self.dependency_error)
         self.bitrate_var.trace_add("write", self.on_settings_changed)
         self.output_folder_var.trace_add("write", self.on_settings_changed)
 
@@ -81,7 +132,8 @@ class AudioConverterGUI:
             legacy_file = self.base_dir / "translations.json"
             if legacy_file.exists():
                 with open(legacy_file, "r", encoding="utf-8") as translation_file:
-                    translations = json.load(translation_file)
+                    legacy_translations = json.load(translation_file)
+                translations = {LANGUAGE_ALIASES.get(code, code): data for code, data in legacy_translations.items()}
 
         if not translations:
             raise FileNotFoundError("No language files were found in the languages folder.")
@@ -109,18 +161,24 @@ class AudioConverterGUI:
             "output_folder": self.output_folder_var.get(),
             "bitrate": self.bitrate_var.get(),
         }
-        with open(self.settings_path, "w", encoding="utf-8") as settings_file:
-            json.dump(settings, settings_file, indent=2)
+        try:
+            with open(self.settings_path, "w", encoding="utf-8") as settings_file:
+                json.dump(settings, settings_file, indent=2)
+        except OSError as error:
+            self.log_to_file(self.t("settings_save_failed", error=error))
 
     def on_settings_changed(self, *_args):
         self.save_settings()
 
     def t(self, key, **kwargs):
-        template = self.translations[self.language_var.get()][key]
-        return template.format(**kwargs) if kwargs else template
+        return self.translate(self.language_var.get(), key, **kwargs)
 
     def translate(self, language_code, key, **kwargs):
-        template = self.translations[language_code][key]
+        # Fall back to the default language, then to the key itself, so a
+        # language file with a missing key never crashes the program.
+        template = self.translations.get(language_code, {}).get(key)
+        if template is None:
+            template = self.translations.get(DEFAULT_LANGUAGE, {}).get(key, key)
         return template.format(**kwargs) if kwargs else template
 
     def run_on_ui_thread(self, callback, *args, **kwargs):
@@ -312,9 +370,9 @@ class AudioConverterGUI:
         self.log_frame.config(text=self.t("log_section"))
         self.footer_label.config(text=self.t("credits"))
         self.update_file_list()
-        self.update_progress_text(0, len(self.files))
         if not self.is_converting:
-            self.status_label.config(text=self.t("ready"))
+            self.update_progress_text(0, len(self.files))
+            self.status_label.config(text=self.t("ready") if self.dependencies_ok else self.t("dependencies_unavailable"))
 
     def apply_theme(self):
         colors = self.theme_palette[self.theme_var.get()]
@@ -375,18 +433,18 @@ class AudioConverterGUI:
         self.apply_translations()
 
     def check_dependencies(self):
-        try:
-            import pydub  # noqa: F401
-        except ImportError:
-            messagebox.showerror(self.t("dependency_missing_title"), self.t("dependency_missing_message"))
+        if AudioSegment is None:
+            self.dependency_error = self.t("dependency_missing_message", error=PYDUB_IMPORT_ERROR)
+            messagebox.showerror(self.t("dependency_missing_title"), self.dependency_error)
             return False
         try:
+            # Encode to memory so the check does not need write access to the
+            # program folder.
             test_audio = AudioSegment.silent(duration=100)
-            temp_file = self.base_dir / "test_ffmpeg.mp3"
-            test_audio.export(temp_file, format="mp3")
-            os.remove(temp_file)
+            test_audio.export(io.BytesIO(), format="mp3")
         except Exception as error:
-            messagebox.showerror(self.t("ffmpeg_error_title"), self.t("ffmpeg_error_message", error=error))
+            self.dependency_error = self.t("ffmpeg_error_message", error=error)
+            messagebox.showerror(self.t("ffmpeg_error_title"), self.dependency_error)
             return False
         return True
 
@@ -410,12 +468,12 @@ class AudioConverterGUI:
         self.save_settings()
 
     def normalize_new_files(self, candidates):
-        existing = {str(Path(path).resolve()).lower() for path in self.files}
+        existing = {path_key(Path(path).resolve()) for path in self.files}
         added = []
         duplicates = 0
         for candidate in candidates:
             resolved = Path(candidate).resolve()
-            key = str(resolved).lower()
+            key = path_key(resolved)
             if key in existing:
                 duplicates += 1
                 continue
@@ -491,8 +549,10 @@ class AudioConverterGUI:
         self.log_text.delete("1.0", tk.END)
         try:
             if self.log_file_path.exists():
-                with open(self.log_file_path, "r", encoding="utf-8") as log_file:
-                    content = log_file.read()
+                with open(self.log_file_path, "r", encoding="utf-8", errors="replace") as log_file:
+                    # Only show the newest lines so a large log file does not
+                    # slow down startup. The full log stays on disk.
+                    content = "".join(log_file.readlines()[-LOG_VIEW_MAX_LINES:])
                 self.log_text.insert(tk.END, content if content else self.t("no_log_yet"))
             else:
                 self.log_text.insert(tk.END, self.t("no_log_yet"))
@@ -505,7 +565,7 @@ class AudioConverterGUI:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_message = f"[{timestamp}] {message}"
         try:
-            with open(self.log_file_path, "a", encoding="utf-8") as log_file:
+            with self.log_lock, open(self.log_file_path, "a", encoding="utf-8") as log_file:
                 log_file.write(log_message + "\n")
         except Exception as error:
             print(self.t("log_write_failed", error=error))
@@ -513,9 +573,23 @@ class AudioConverterGUI:
 
     def show_about(self):
         formats = ", ".join(ext.lstrip(".").upper() for ext in self.supported_formats)
-        messagebox.showinfo(self.t("about_title"), self.t("about_message", formats=formats))
+        message = f"{self.t('about_message', formats=formats)}\n\n{self.t('about_version', version=__version__)}"
+        messagebox.showinfo(self.t("about_title"), message)
+
+    def set_file_controls_state(self, state):
+        # File list and output settings are locked while a conversion runs.
+        for widget in [self.select_files_button, self.select_folder_button, self.clear_button, self.same_folder_radio, self.other_folder_radio]:
+            widget.config(state=state)
+        if state == "normal":
+            self.toggle_output_folder()
+        else:
+            self.output_entry.config(state="disabled")
+            self.browse_button.config(state="disabled")
 
     def start_conversion(self):
+        if not self.dependencies_ok:
+            messagebox.showerror(self.t("error_title"), self.dependency_error or self.t("dependencies_unavailable"))
+            return
         if not self.files:
             messagebox.showwarning(self.t("no_files_title"), self.t("no_files_message"))
             self.log_to_file(self.t("conversion_aborted_no_files"))
@@ -529,6 +603,7 @@ class AudioConverterGUI:
             return
         self.is_converting = True
         self.convert_button.config(state="disabled", bg="#808080", text=self.t("converting_button"))
+        self.set_file_controls_state("disabled")
         files = list(self.files)
         bitrate = self.bitrate_var.get()
         output_location = self.output_location_var.get()
@@ -543,7 +618,9 @@ class AudioConverterGUI:
     def update_conversion_progress(self, language_code, current, total, filename):
         self.status_label.config(text=self.translate(language_code, "converting_status", filename=filename), fg="#FF9800")
         self.update_progress_text(current, total)
-        self.progress["value"] = (current / total) * 100 if total else 0
+        # Progress reflects completed files, so the bar only reaches 100%
+        # when the last file is done.
+        self.progress["value"] = ((current - 1) / total) * 100 if total else 0
 
     def finish_conversion_ui(self, language_code, successful, failed, total_files):
         self.progress["value"] = 100 if total_files else 0
@@ -554,6 +631,7 @@ class AudioConverterGUI:
         self.update_progress_text(total_files, total_files)
         self.is_converting = False
         self.convert_button.config(state="normal", bg="#FF9800", text=self.t("convert"))
+        self.set_file_controls_state("normal")
         if failed == 0:
             messagebox.showinfo(
                 self.translate(language_code, "success_title"),
@@ -572,7 +650,12 @@ class AudioConverterGUI:
         self.log_to_file("=" * 60)
         self.log_to_file(self.translate(language_code, "conversion_started", count=total_files))
         self.log_to_file(self.translate(language_code, "bitrate_log", bitrate=bitrate))
+        # Output paths already used in this batch, so two sources with the
+        # same name (e.g. song.flac and song.wav) never overwrite each other.
+        reserved_outputs = set()
         for index, input_file in enumerate(files, start=1):
+            temp_file = None
+            reserved_key = None
             try:
                 self.run_on_ui_thread(
                     self.update_conversion_progress,
@@ -582,11 +665,15 @@ class AudioConverterGUI:
                     os.path.basename(input_file),
                 )
                 if output_location == "same":
-                    output_folder = os.path.dirname(input_file)
+                    target_folder = os.path.dirname(input_file)
                 else:
-                    os.makedirs(output_folder, exist_ok=True)
+                    target_folder = output_folder
+                    os.makedirs(target_folder, exist_ok=True)
                 filename = Path(input_file).stem
-                output_file = os.path.join(output_folder, f"{filename}.mp3")
+                output_file = resolve_output_path(target_folder, filename, reserved_outputs)
+                reserved_key = path_key(output_file)
+                reserved_outputs.add(reserved_key)
+                target_name = os.path.basename(output_file)
                 self.log_to_file(
                     self.translate(
                         language_code,
@@ -594,17 +681,35 @@ class AudioConverterGUI:
                         current=index,
                         total=total_files,
                         source=os.path.basename(input_file),
-                        target=f"{filename}.mp3",
+                        target=target_name,
                     )
                 )
+                if target_name != f"{filename}.mp3":
+                    self.log_to_file(self.translate(language_code, "output_renamed", target=target_name))
                 audio = AudioSegment.from_file(input_file)
-                audio.export(output_file, format="mp3", bitrate=bitrate)
+                # Write to a temporary file first and move it into place when
+                # the export succeeded, so a failed conversion never leaves a
+                # broken MP3 behind.
+                temp_file = f"{output_file}.part"
+                with open(temp_file, "wb") as temp_handle:
+                    audio.export(temp_handle, format="mp3", bitrate=bitrate)
+                os.replace(temp_file, output_file)
+                temp_file = None
                 file_size = os.path.getsize(output_file) / (1024 * 1024)
                 self.log_to_file(self.translate(language_code, "success_log", size=file_size))
                 successful += 1
             except Exception as error:
                 self.log_to_file(self.translate(language_code, "failure_log", error=error))
                 failed += 1
+                # Free the name again so the numbering has no gaps.
+                if reserved_key:
+                    reserved_outputs.discard(reserved_key)
+            finally:
+                if temp_file and os.path.exists(temp_file):
+                    try:
+                        os.remove(temp_file)
+                    except OSError:
+                        pass
         self.log_to_file("=" * 60)
         self.log_to_file(self.translate(language_code, "conversion_finished"))
         self.log_to_file(self.translate(language_code, "successful_count", count=successful))

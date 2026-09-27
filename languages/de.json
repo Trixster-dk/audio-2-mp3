@@ -73,11 +73,15 @@
   "partial_success_title": "Teilweiser Erfolg",
   "partial_success_message": "Konvertierung abgeschlossen.\n\nErfolgreich: {successful}\nFehlgeschlagen: {failed}\n\nPrufen Sie das Log fur Details.",
   "dependency_missing_title": "Fehlende Abhangigkeit",
-  "dependency_missing_message": "pydub ist nicht installiert.\n\nInstallieren Sie es mit: pip install pydub",
+  "dependency_missing_message": "pydub konnte nicht geladen werden.\n\nInstallieren Sie die Abhangigkeiten mit: pip install -r requirements.txt\n\nFehler: {error}",
   "ffmpeg_error_title": "FFmpeg Fehler",
   "ffmpeg_error_message": "FFmpeg ist nicht verfugbar oder funktioniert nicht korrekt.\n\nFFmpeg herunterladen: https://ffmpeg.org/download.html\n\nFehler: {error}",
   "about_title": "Uber Audio zu MP3 Konverter",
   "about_message": "Audio zu MP3 Konverter\n\nProgrammiert von Trixster\nJahr: 2026\n\nUnterstutzte Eingabeformate:\n{formats}\n\nKonvertiert unterstutzte Audiodateien mit Python, Tkinter, pydub und FFmpeg in MP3.",
   "duplicate_skipped": "{count} doppelte Datei(en) wurden ubersprungen",
-  "log_cleared": "Log geleert"
+  "log_cleared": "Log geleert",
+  "dependencies_unavailable": "Konvertierung nicht moglich: FFmpeg oder pydub fehlt. Siehe Log.",
+  "output_renamed": "Ziel existiert bereits, speichere als: {target}",
+  "settings_save_failed": "Einstellungen konnten nicht gespeichert werden: {error}",
+  "about_version": "Version {version}"
 }

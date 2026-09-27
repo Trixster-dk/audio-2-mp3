@@ -73,11 +73,15 @@
   "partial_success_title": "Delvis suksess",
   "partial_success_message": "Konvertering ferdig.\n\nVellykket: {successful}\nFeilet: {failed}\n\nSe loggen for detaljer.",
   "dependency_missing_title": "Manglende avhengighet",
-  "dependency_missing_message": "pydub er ikke installert.\n\nInstaller med: pip install pydub",
+  "dependency_missing_message": "pydub kunne ikke lastes.\n\nInstaller kravene med: pip install -r requirements.txt\n\nFeil: {error}",
   "ffmpeg_error_title": "FFmpeg feil",
   "ffmpeg_error_message": "FFmpeg er ikke tilgjengelig eller virker ikke riktig.\n\nLast ned FFmpeg fra: https://ffmpeg.org/download.html\n\nFeil: {error}",
   "about_title": "Om Audio til MP3 Konverter",
   "about_message": "Audio til MP3 Konverter\n\nKodet av Trixster\nAr: 2026\n\nStottede inputformater:\n{formats}\n\nKonverterer stottede lydfiler til MP3 med Python, Tkinter, pydub og FFmpeg.",
   "duplicate_skipped": "{count} duplikatfil(er) ble hoppet over",
-  "log_cleared": "Logg ryddet"
+  "log_cleared": "Logg ryddet",
+  "dependencies_unavailable": "Konvertering ikke mulig: FFmpeg eller pydub mangler. Se loggen.",
+  "output_renamed": "Destinasjonen finnes allerede, lagrer som: {target}",
+  "settings_save_failed": "Kunne ikke lagre innstillinger: {error}",
+  "about_version": "Versjon {version}"
 }

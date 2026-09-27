@@ -1,5 +1,7 @@
 # Audio 2 MP3
 
+Version 1.1.0 - see [CHANGELOG.md](CHANGELOG.md).
+
 A small Python desktop app with a graphical interface for converting audio files to MP3.
 
 The program supports several common audio formats and lets you:
@@ -11,6 +13,7 @@ The program supports several common audio formats and lets you:
 - switch between multiple UI languages
 - switch between light and dark theme
 - view the log directly in the main window
+- keep existing files safe: an existing MP3 is never overwritten, a numbered copy such as `song (1).mp3` is created instead
 
 ## Features
 
@@ -27,7 +30,9 @@ The program supports several common audio formats and lets you:
 
 - Python 3
 - `pydub`
-- `ffmpeg` installed and available in PATH
+- `ffmpeg` (including `ffprobe`) installed and available in PATH
+
+On Python 3.13 and newer, `requirements.txt` also installs `audioop-lts`, which pydub needs.
 
 ## Installation
 
@@ -58,6 +63,8 @@ AudioConverter.bat
 - `languages/` - language folder with one JSON file per language, for example `en.json`, `dk.json`, `de.json`, and `no.json`
 - `AudioConverter.bat` - simple Windows launcher
 - `requirements.txt` - Python dependencies
+- `CHANGELOG.md` - version history
+- `DOKUMENTATION.md` - technical documentation
 
 ## Author
 

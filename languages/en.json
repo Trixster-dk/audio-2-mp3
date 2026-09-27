@@ -73,11 +73,15 @@
   "partial_success_title": "Partial success",
   "partial_success_message": "Conversion finished.\n\nSuccessful: {successful}\nFailed: {failed}\n\nCheck the log for details.",
   "dependency_missing_title": "Missing dependency",
-  "dependency_missing_message": "pydub is not installed.\n\nInstall it with: pip install pydub",
+  "dependency_missing_message": "pydub could not be loaded.\n\nInstall the requirements with: pip install -r requirements.txt\n\nError: {error}",
   "ffmpeg_error_title": "FFmpeg error",
   "ffmpeg_error_message": "FFmpeg is not available or is not working correctly.\n\nDownload FFmpeg from: https://ffmpeg.org/download.html\n\nError: {error}",
   "about_title": "About Audio to MP3 Converter",
   "about_message": "Audio to MP3 Converter\n\nCoded by Trixster\nYear: 2026\n\nSupported input formats:\n{formats}\n\nConverts supported audio files to MP3 using Python, Tkinter, pydub and FFmpeg.",
   "duplicate_skipped": "{count} duplicate file(s) were skipped",
-  "log_cleared": "Log cleared"
+  "log_cleared": "Log cleared",
+  "dependencies_unavailable": "Conversion unavailable: FFmpeg or pydub is missing. See the log.",
+  "output_renamed": "Target already exists, saving as: {target}",
+  "settings_save_failed": "Could not save settings: {error}",
+  "about_version": "Version {version}"
 }

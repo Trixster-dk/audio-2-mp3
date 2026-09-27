@@ -17,3 +17,6 @@ PROJECT_HANDOFF.md
 
 converter_log.txt
 test_ffmpeg.mp3
+
+*.part
+*.bak_*
