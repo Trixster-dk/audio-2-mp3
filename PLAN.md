@@ -1,6 +1,6 @@
 # Audio 2 MP3 - Plan
 
-Version 1.1.0 - 2026-09-27
+Version 1.1.1 - 2026-09-27
 
 ## Goal
 

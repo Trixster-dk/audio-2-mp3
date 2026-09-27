@@ -1,8 +1,9 @@
 # Audio 2 MP3 - convert.py
-# Version: 1.1.0
-# Date: 2026-09-27 20:56
+# Version: 1.1.1
+# Date: 2026-09-27 21:18
 #
 # Changelog (see CHANGELOG.md for full history):
+# 1.1.1 - Proper special characters (ae/oe/aa, umlauts) in the UI languages.
 # 1.1.0 - Never overwrite existing MP3 files, write output atomically,
 #         robust dependency check, locked controls during conversion,
 #         translation fallback, safer settings/log handling.
@@ -24,7 +25,7 @@ except ImportError as import_error:
     AudioSegment = None
     PYDUB_IMPORT_ERROR = import_error
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 DEFAULT_LANGUAGE = "en"
 LANGUAGE_ALIASES = {"da": "dk"}
